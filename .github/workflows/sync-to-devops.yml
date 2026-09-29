@@ -23,7 +23,7 @@ jobs:
       - name: Sync Frontend Files
         run: |
           mkdir -p devops/Frontend 
-          rsync -av --delete --exclude='.git'' --exclude='.github' source/ devops/Frontend/
+          rsync -av --delete --exclude='.git' --exclude='.github' source/ devops/Frontend/
 
       - name: Commit & Push to DevOps 
         run: | 
@@ -34,6 +34,6 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes to sync."
           else 
-            git commit -m "sync(frontend): Update from commit ${{ github.sha}} "
+            git commit -m "sync(frontend): Update from commit ${{ github.sha }} "
             git push origin main
           fi 
