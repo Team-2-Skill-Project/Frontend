@@ -1,0 +1,39 @@
+name: Sync to DevOps Monorepo
+
+on:
+  push: 
+    branches: [main]
+
+jobs:
+  sync: 
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Frontend
+        uses: actions/checkout@v4
+        with: 
+          path: source 
+
+      - name: Checkout Frontend
+        uses: actions/checkout@v4
+        with: 
+          repository: Team-2-Skill-Project/DevOps-Infrastructure
+          token: ${{ secrets.DEVOPS_SYNC_TOKEN }} 
+          path: devops 
+
+      - name: Sync Frontend Files
+        run: |
+          mkdir -p devops/Frontend 
+          rsync -av --delete --exclude='.git'' --exclude='.github' source/ devops/Frontend/
+
+      - name: Commit & Push to DevOps 
+        run: | 
+          cd devops 
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Frontend/
+          if git diff --staged --quiet; then
+            echo "No changes to sync."
+          else 
+            git commit -m "sync(frontend): Update from commit ${{ github.sha}} "
+            git push origin main
+          fi 
