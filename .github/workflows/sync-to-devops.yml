@@ -23,7 +23,22 @@ jobs:
       - name: Sync Frontend Files
         run: |
           mkdir -p devops/Frontend 
-          rsync -av --delete --exclude='.git' --exclude='.github' source/ devops/Frontend/
+          rsync -av --delete \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='Dockerfile*' \
+            --exclude='.dockerignore' \
+            --exclude='nginx.conf' \
+            source/ devops/Frontend/
+          if [ -f source/Dockerfile ]; then
+            cp -a source/Dockerfile devops/Frontend/
+          fi
+          if [ -f source/.dockerignore ]; then
+            cp -a source/.dockerignore devops/Frontend/
+          fi
+          if [ -f source/nginx.conf ]; then
+            cp -a source/nginx.conf devops/Frontend/
+          fi
 
       - name: Commit & Push to DevOps 
         run: | 
