@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "framer-motion";
 import { Briefcase, ExternalLink, MoreVertical, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ export default function ApplicationCard({
   onOpenDetails,
   onWithdraw,
 }) {
+  const { t } = useTranslation("dashboard");
   const statusObj = STATUS_CONFIG[app.status] || STATUS_CONFIG.applied;
   const StatusIcon = statusObj.icon;
 
@@ -56,7 +58,7 @@ export default function ApplicationCard({
           {statusObj.label}
         </span>
         <MatchRing score={app.matchScore} />
-        <div className="hidden md:block text-[12px] text-muted w-20 text-right">
+        <div className="hidden md:block text-[12px] text-muted w-20 text-end">
           {new Date(app.appliedDate).toLocaleDateString("en-US", {
             month: "short",
             day: "numeric",
@@ -70,7 +72,7 @@ export default function ApplicationCard({
             size="icon-sm"
             onClick={() => onOpenDetails(app)}
             className="w-8 h-8 rounded-full flex items-center justify-center text-primary hover:bg-primary/10 transition-colors"
-            title="Open Application Details"
+            title={t(`pages.applicationDetail.openDetails`)}
           >
             <ExternalLink className="w-4 h-4" />
           </Button>
@@ -98,7 +100,7 @@ export default function ApplicationCard({
                     type="button"
                     variant="ghost"
                     onClick={() => onOpenDetails(app)}
-                    className="w-full text-left flex items-center gap-2 px-3 py-2 text-[12.5px] text-[#44474E] hover:bg-background transition-colors"
+                    className="w-full text-start flex items-center gap-2 px-3 py-2 text-[12.5px] text-[#44474E] hover:bg-background transition-colors"
                   >
                     <Briefcase className="w-4 h-4 text-muted" /> View Details
                   </Button>
@@ -107,7 +109,7 @@ export default function ApplicationCard({
                       type="button"
                       variant="ghost"
                       onClick={() => onWithdraw(app.id)}
-                      className="w-full text-left flex items-center gap-2 px-3 py-2 text-[12.5px] text-[#B3271E] hover:bg-[#B3271E]/5 transition-colors border-t border-border/50 mt-1 pt-1.5"
+                      className="w-full text-start flex items-center gap-2 px-3 py-2 text-[12.5px] text-[#B3271E] hover:bg-[#B3271E]/5 transition-colors border-t border-border/50 mt-1 pt-1.5"
                     >
                       <XCircle className="w-4 h-4" /> Withdraw Application
                     </Button>

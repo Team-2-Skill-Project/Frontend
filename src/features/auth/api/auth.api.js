@@ -1,28 +1,71 @@
 import { api } from "@/services/axios/axiosInstance";
 
+// Mirrors REFRESH_HEADER in axiosInstance, repeated here so this module does
+// not import the client it already depends on for something the client also
+// needs. A refresh response must never re-enter the refresh interceptor.
+const REFRESH_HEADER = "x-skillmatch-refresh-retry";
+
 
 
 // POST /api/auth/register
 export const registerRequest = (payload) =>
   api.post("/api/auth/register", payload).then((res) => res.data);
 
-// POST /api/auth/verify-email-otp — send the code as `otp`; rejects with the axios error.
-export const verifyEmailOtpRequest = async (payload) => {
-    const { data } = await api.post("/api/auth/verify-email-otp", { ...payload, otp: payload.code })
-    return data;
-}
-
 // POST /api/auth/resend-email-otp — resolves with the normalized server payload, rejects with the axios error.
 export const resendEmailOtpRequest = (payload) =>
   api.post("/api/auth/resend-email-otp", payload).then((res) => res.data);
 
-// POST /api/auth/login — resolves with the server payload (access_token + user), rejects with the axios error.
+// POST /api/auth/login — the response sets the session cookie; resolves with the
+// server payload ({ user } when present), rejects with the axios error.
 export const loginRequest = (payload) =>
-  api.post("/api/auth/login", payload).then((res) => res.data);
+  api.post("/api/auth/login", payload).then((res) => res.data?.data ?? res.data);
 
-// GET /api/auth/me — resolves with the authenticated user, rejects with the axios error when the token is absent/expired.
-export const meRequest = () =>
-  api.get("/api/auth/me").then((res) => res.data?.data ?? res.data);
+// GET /api/auth/me — the only way to read the session, since the cookie is httpOnly.
+// Resolves with the authenticated user, rejects with the axios error when the
+// cookie is absent or expired.
+//
+// `config` is passed straight through so the boot-time session check in
+// useInitializeAuth can pass an AbortSignal — see the race-condition note
+// there for why cancelling it matters.
+//
+// ── Why this unwraps `.user` ────────────────────────────────────────────────
+// This endpoint nests the user one level deeper than every other auth call:
+// Laravel's default AuthResource serializes as { data: { user: { … } } }, and
+// loginRequest's consumers already read `data.user` accordingly. But the
+// previous version returned the whole `res.data.data`, so all four callers here
+// — useInitializeAuth (x2), useVerifyOtpMutation, useRefreshToken and the
+// axios refresh queue — stored `{ user: {...} }` *as the user*.
+//
+// The failure is silent and severe: auth.status still became "authenticated",
+// so RequireAuth let the route through, but user.role was undefined, so
+// DashboardRoleTree hit its `if (!role)` branch and rendered its spinner —
+// forever, with no error and no way forward. Signing in worked, because the
+// login hook reads data.user; reloading a signed-in session hung, because this
+// one did not. Normalizing here means the shape is fixed once (convention §4.5).
+export const meRequest = (config) =>
+  api.get("/api/auth/me", config).then((res) => {
+    const body = res.data?.data ?? res.data;
+    return body?.user ?? body;
+  });
+
+// POST /api/auth/refresh — exchanges the refresh token for a new access token.
+//
+// Returns the new access token when the server issues one, otherwise null. A
+// cookie-session backend answers 200/204 with an empty body and the browser
+// just updates its cookie, so "no token in the body" is a normal outcome and
+// must not be treated as a failure.
+//
+// Tagged with REFRESH_HEADER so its own 401 can never re-enter the refresh
+// queue in the axios response interceptor.
+export const refreshTokenRequest = async () => {
+  const { data } = await api.post(
+    "/api/auth/refresh",
+    null,
+    { headers: { [REFRESH_HEADER]: "true" } },
+  );
+  const body = data?.data ?? data ?? {};
+  return body.access_token ?? body.token ?? null;
+};
 
 // Posts { email } to the reset endpoint; resolves with the normalized server payload, rejects with the axios error.
 export const forgotPassword = async (payload) => {
@@ -30,13 +73,14 @@ export const forgotPassword = async (payload) => {
     return data;
 }
 
-// Posts { email, code } to the OTP endpoint; resolves with { token } for the next step, rejects with the axios error.
+// Posts { email, code } to the email-OTP endpoint used by the register wizard;
+// resolves with the server ack body, rejects with the axios error. The session
+// cookie is set by the response itself, so there is no token to return here —
+// useVerifyOtpMutation follows up with meRequest() to read the user back.
 export const verifyOtp = async (payload) => {
     const { data } = await api.post("/api/auth/verify-email-otp", { ...payload, otp: payload.code })
     // Normalize the raw server shape here so no hook/Redux ever stores it (convention §4.5).
-    const body = data?.data ?? data;
-    // The next step (reset-password) sends this back as `reset_token`, so accept that key first.
-    return { token: body?.reset_token ?? body?.token ?? body?.access_token ?? null };
+    return data?.data ?? data;
 }
 // Posts { email, code } to the recovery OTP endpoint; resolves with { token } for the next step, rejects with the axios error.
 export const verifyForgotOtp = async (payload) => {
@@ -59,3 +103,7 @@ export const resetPassword = async (payload) => {
     const { data } = await api.post("/api/auth/reset-password", { ...payload, reset_token: payload.token })
     return data;
 }
+// POST /api/auth/logout - invalidates the server session/refresh token; 
+// resolves with the normalized server response, rejects with the axios error.
+export const logoutRequest = () =>
+  api.post("/api/auth/logout").then((res) => res.data?.data ?? res.data);

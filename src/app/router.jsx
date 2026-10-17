@@ -1,18 +1,14 @@
 import MainLayout from "@/components/layouts/MainLayout";
-import DashboardLayout from "@/components/layouts/DashboardLayout/DashboardLayout";
 import HomePage from "@/features/public/pages/HomePage";
 import NotFoundPage from "@/features/public/pages/NotFoundPage";
 
 import { createBrowserRouter } from "react-router-dom";
 import { auth } from "./routes/auth.routes";
-import {
-  candidateDashboardRoutes,
-  adminDashboardRoutes,
-} from "./routes/guards/dashboard.routes";
 import LanguageLayout from "./routes/LanguageLayout";
 import RootRedirect from "./routes/RootRedirect";
 import { RequireAuth } from "./routes/guards/RequireAuth";
-import { RequireRole } from "./routes/guards/RequireRole";
+import { RequireOnboarding } from "./routes/guards/RequireOnboarding";
+import { DashboardRoleTree } from "./routes/guards/DashboardRoleTree";
 
 export const router = createBrowserRouter([
   // Root redirect
@@ -41,25 +37,23 @@ export const router = createBrowserRouter([
         ],
       },
 
-      // Dashboard routes — must be logged in (RequireAuth), then routed to
-      // the matching role's tree (RequireRole). DashboardLayout no longer
-      // takes hardcoded userName/userRole props — it reads the real user
-      // from Redux internally, same as every other authenticated screen.
+      // Dashboard routes — must be logged in (RequireAuth), then onboarding check
+      // (RequireOnboarding), then the tree for the matching role is picked from
+      // Redux by <DashboardRoleTree />.
       {
         path: "dashboard",
         element: <RequireAuth />,
         children: [
           {
-            element: <DashboardLayout />,
+            element: <RequireOnboarding />,
             children: [
-              {
-                element: <RequireRole allow={["candidate"]} />,
-                children: candidateDashboardRoutes,
-              },
-              {
-                element: <RequireRole allow={["admin"]} />,
-                children: adminDashboardRoutes,
-              },
+              // Two entries pointing at the same component: the index matches the
+              // dashboard root (/dashboard), the splat matches everything beneath
+              // it (/dashboard/job-management, ...). A single pathless child with
+              // no children of its own would never match at all, and
+              // "dashboard/*" would not match "/dashboard" without the slash.
+              { index: true, element: <DashboardRoleTree /> },
+              { path: "*", element: <DashboardRoleTree /> },
             ],
           },
         ],

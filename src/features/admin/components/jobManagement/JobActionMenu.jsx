@@ -1,14 +1,31 @@
 import { useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
-import { MoreVertical, Building, RotateCcw } from "lucide-react";
+import { MoreVertical, Building, RefreshCcw } from "lucide-react";
+import { JOB_STATUS_OPTIONS } from "@/features/admin/constants/admin.filters";
 
 /**
  * JobActionMenu
- * Row-level "MoreVertical" dropdown with click-outside detection and
- * a Framer Motion enter/exit animation.
+ * Row-level "MoreVertical" dropdown with click-outside detection and a
+ * Framer Motion enter/exit animation. Actions are real: open the company,
+ * or change the job status through the update mutation.
+ *
+ * The status entries carry `value` (the API enum) separately from `labelKey`,
+ * so the localized label is never what gets sent to the server.
  */
-export default function JobActionMenu({ job, isOpen, onToggle, onAction }) {
+export default function JobActionMenu({
+  job,
+  isOpen,
+  onToggle,
+  companyHref,
+  onChangeStatus,
+  isUpdating,
+}) {
   const menuRef = useRef(null);
+  const { t } = useTranslation("dashboard");
+  const { t: tCommon } = useTranslation("common");
+  const key = "pages.admin.jobList.menu";
 
   // Close the menu when clicking anywhere outside of it.
   useEffect(() => {
@@ -30,6 +47,7 @@ export default function JobActionMenu({ job, isOpen, onToggle, onAction }) {
         type="button"
         onClick={() => onToggle(!isOpen)}
         className="w-8 h-8 rounded-full flex items-center justify-center text-muted hover:bg-background transition-colors"
+        aria-label={t(`${key}.actionsFor`, { title: job.title })}
       >
         <MoreVertical className="w-4 h-4" />
       </button>
@@ -41,26 +59,39 @@ export default function JobActionMenu({ job, isOpen, onToggle, onAction }) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -5 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 top-9 z-20 bg-white border border-border rounded-xl shadow-lg py-1.5 w-48"
+            className="absolute end-0 top-9 z-20 bg-white border border-border rounded-xl shadow-lg py-1.5 w-48"
           >
-            <button
-              type="button"
-              onClick={() =>
-                onAction(`Opening ${job.company} company profile…`)
-              }
-              className="w-full flex items-center gap-2 px-3.5 py-2 text-[12.5px] text-[#44474E] hover:bg-background transition-colors text-left"
-            >
-              <Building className="w-4 h-4 text-muted" /> Open Company
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                onAction(`Updating ${job.title}: Status or featured mode…`)
-              }
-              className="w-full flex items-center gap-2 px-3.5 py-2 text-[12.5px] text-[#44474E] hover:bg-background transition-colors text-left"
-            >
-              <RotateCcw className="w-4 h-4 text-muted" /> Update Job
-            </button>
+            {companyHref && (
+              <Link
+                to={companyHref}
+                onClick={() => onToggle(false)}
+                className="w-full flex items-center gap-2 px-3.5 py-2 text-[12.5px] text-[#44474E] hover:bg-background transition-colors text-start"
+              >
+                <Building className="w-4 h-4 text-muted" /> {t(`${key}.openCompany`)}
+              </Link>
+            )}
+
+            <p className="px-3.5 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted">
+              {t(`${key}.setStatus`)}
+            </p>
+            {JOB_STATUS_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                disabled={isUpdating}
+                onClick={() => onChangeStatus(option.value)}
+                className={`w-full flex items-center justify-between rounded-lg px-3.5 py-1.5 text-[12.5px] transition-colors text-start ${
+                  job.status === option.value
+                    ? "font-bold text-primary"
+                    : "text-[#44474E] hover:bg-background"
+                } disabled:opacity-50`}
+              >
+                {tCommon(option.labelKey)}
+                {isUpdating && job.status !== option.value && (
+                  <RefreshCcw className="w-3 h-3 animate-spin" />
+                )}
+              </button>
+            ))}
           </motion.div>
         )}
       </AnimatePresence>

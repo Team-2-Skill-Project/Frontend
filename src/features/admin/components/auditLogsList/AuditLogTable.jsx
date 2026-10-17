@@ -1,17 +1,21 @@
+import { useTranslation } from "react-i18next";
 import { ArrowUpDown, ChevronLeft, ChevronRight, Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
 import AuditLogRow from "./AuditLogRow";
 
+// The trailing column has no header, so it carries no key.
 const COLUMNS = [
-  { key: "timestamp", label: "Timestamp", sortable: true },
-  { key: "actor", label: "Actor" },
-  { key: "action", label: "Action" },
-  { key: "entity", label: "Entity" },
-  { key: "previous", label: "Previous" },
-  { key: "new", label: "New" },
-  { key: "ip", label: "IP / Meta" },
-  { key: "actions", label: "" },
+  { key: "timestamp", labelKey: "timestamp", sortable: true },
+  { key: "actor", labelKey: "actor" },
+  { key: "action", labelKey: "action" },
+  { key: "entity", labelKey: "entity" },
+  { key: "previous", labelKey: "previous" },
+  { key: "new", labelKey: "new" },
+  { key: "ip", labelKey: "ip" },
+  { key: "actions", labelKey: null },
 ];
+
+const KEY = "pages.admin.auditLogs.table";
 
 /** Window of up to 3 page numbers centered around the current page. */
 function getPageNumbers(page, pageCount) {
@@ -36,9 +40,11 @@ export default function AuditLogTable({
   page = 1,
   pageCount = 1,
   onPageChange,
-  emptyMessage = "No audit logs match your current filters.",
+  range,
+  emptyMessage,
   className,
 }) {
+  const { t } = useTranslation("dashboard");
   const pageNumbers = getPageNumbers(page, pageCount);
 
   return (
@@ -49,7 +55,7 @@ export default function AuditLogTable({
       )}
     >
       <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse min-w-225">
+        <table className="w-full text-start border-collapse min-w-225">
           <thead>
             <tr className="bg-[#f7f4ef] border-b border-border text-[11px] font-bold uppercase tracking-wider text-muted">
               {COLUMNS.map((column) => (
@@ -63,11 +69,11 @@ export default function AuditLogTable({
                 >
                   {column.sortable ? (
                     <div className="flex items-center gap-1">
-                      {column.label}
+                      {t(`${KEY}.${column.labelKey}`)}
                       <ArrowUpDown className="w-3 h-3 text-primary" />
                     </div>
                   ) : (
-                    column.label
+                    column.labelKey && t(`${KEY}.${column.labelKey}`)
                   )}
                 </th>
               ))}
@@ -78,7 +84,9 @@ export default function AuditLogTable({
               <tr>
                 <td colSpan={COLUMNS.length} className="py-16 text-center">
                   <Inbox className="w-8 h-8 text-muted mx-auto mb-2" />
-                  <p className="text-[13.5px] text-muted">{emptyMessage}</p>
+                  <p className="text-[13.5px] text-muted">
+                    {emptyMessage ?? t(`${KEY}.empty`)}
+                  </p>
                 </td>
               </tr>
             ) : (
@@ -93,7 +101,14 @@ export default function AuditLogTable({
       {/* Pagination */}
       <div className="p-3.5 px-4 border-t border-border flex items-center justify-between gap-3 flex-wrap">
         <div className="text-xs sm:text-sm text-muted">
-          Page {page} of {pageCount}
+          {range
+            ? t(`${KEY}.showing`, {
+                count: range.total,
+                from: range.from,
+                to: range.to,
+                total: range.total,
+              })
+            : t(`${KEY}.pageOf`, { page, total: pageCount })}
         </div>
         <div className="flex items-center gap-1.5">
           <button
